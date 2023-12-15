@@ -7,6 +7,7 @@ import de.asbestian.jplex.input.Objective.ObjectiveSense;
 import de.asbestian.jplex.input.Variable.VariableBuilder;
 import de.asbestian.jplex.input.Variable.VariableType;
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
@@ -94,25 +95,41 @@ public class LpFileReader {
   private Section currentSection;
   private int currentLineNumber;
 
+  public LpFileReader(final BufferedReader bf) {
+    read(bf);
+  }
+
   public LpFileReader(final String path) {
+    try {
+      read(new BufferedReader(new FileReader(path)));
+    } catch (FileNotFoundException e) {
+      LOGGER.error("File {} not found.", path);
+      objectives = Lists.immutable.empty();
+      constraints = Lists.immutable.empty();
+      variables = Maps.immutable.empty();
+    }
+  }
+
+  private void read(BufferedReader bf) {
     currentSection = Section.START;
     currentLineNumber = 0;
     final MutableMap<String, VariableBuilder> variableBuilders = new UnifiedMap<>();
-    try (final BufferedReader bf = new BufferedReader(new FileReader(path))) {
+    try {
       final var objectiveSense = readObjectiveSense(bf);
       objectives = readObjectives(bf, variableBuilders, objectiveSense);
       constraints = readConstraints(bf, variableBuilders);
-      while(currentSection != Section.END) {
+      while (currentSection != Section.END) {
         switch (currentSection) {
           case BOUNDS -> readBounds(bf, variableBuilders);
           case BINARY -> readBinary(bf, variableBuilders);
           case GENERAL -> readGeneral(bf, variableBuilders);
-          default -> throw new InputException(String.format("Unexpected section: %s", currentSection));
+          default ->
+              throw new InputException(String.format("Unexpected section: %s", currentSection));
         }
       }
       variables = variableBuilders.collectValues((key, value) -> value.build()).toImmutable();
     } catch (final IOException | InputException e) {
-      LOGGER.error("Problem reading section {} in input file {}", currentSection, path);
+      LOGGER.error("Problem reading section {}", currentSection);
       LOGGER.error(e.getMessage());
       objectives = Lists.immutable.empty();
       constraints = Lists.immutable.empty();
