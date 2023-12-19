@@ -232,25 +232,21 @@ public class LpFileReader {
       if (consBuilder == null) {
         throw new InputException("Constraint builder is null.");
       }
-      switch (result) {
-        case Unit unit -> {
-          final var lhs = parseLinComb(variableBuilders, unit.line(), currentLineNumber);
-          consBuilder.mergeCoefficients(lhs);
-        }
-        case Pair pair -> {
-          consBuilder.setSense(pair.sense);
-          consBuilder.setRhs(pair.rhs);
-          constraints.add(consBuilder.build());
-          consBuilder = null;
-        }
-        case Triple triple -> {
-          final var lhs = parseLinComb(variableBuilders, triple.line(), currentLineNumber);
-          consBuilder.mergeCoefficients(lhs);
-          consBuilder.setSense(triple.sense);
-          consBuilder.setRhs(triple.rhs);
-          constraints.add(consBuilder.build());
-          consBuilder = null;
-        }
+      if (result instanceof Unit unit) {
+        final var lhs = parseLinComb(variableBuilders, unit.line(), currentLineNumber);
+        consBuilder.mergeCoefficients(lhs);
+      } else if (result instanceof Pair pair) {
+        consBuilder.setSense(pair.sense);
+        consBuilder.setRhs(pair.rhs);
+        constraints.add(consBuilder.build());
+        consBuilder = null;
+      } else if (result instanceof Triple triple) {
+        final var lhs = parseLinComb(variableBuilders, triple.line(), currentLineNumber);
+        consBuilder.mergeCoefficients(lhs);
+        consBuilder.setSense(triple.sense);
+        consBuilder.setRhs(triple.rhs);
+        constraints.add(consBuilder.build());
+        consBuilder = null;
       }
       line = getNextProperLine(bufferedReader);
     }
