@@ -87,7 +87,7 @@ public class LpFileReader {
       ParsedConstraintLine {}
 
   private static final String PATTERN =
-      "[a-zA-Z\\!\"#\\$%&\\(\\)/,;\\?`'\\{\\}\\|~_][a-zA-Z0-9\\!\"#\\$%&\\(\\)/,\\.;\\?`'\\{\\}\\|~_]*";
+      "[a-zA-Z\\!\"#\\$%&\\(\\)/,;\\?`'\\{\\}\\|~_][a-zA-Z0-9^*\\!\"#\\$%&\\(\\)/,\\.;\\?`'\\{\\}\\|~_]*";
 
   private ImmutableList<Objective> objectives;
   private ImmutableList<Constraint> constraints = Lists.immutable.empty();;
@@ -452,7 +452,20 @@ public class LpFileReader {
           throw new InputException(String.format("line %d: missing sign", lineNo));
         }
         LOGGER.trace("Parsing {} {}", sign, token);
-        parseAddend(variableBuilders, token, lineNo, sign, linComb);
+
+        String[] split = token.split("\\*", 2);
+        String name;
+
+        if (split.length == 0) {
+          throw new InputException(
+              String.format("Line %d: %s is not a valid variable.", lineNo, token));
+        } else if (split.length == 1) {
+          name = split[0];
+        } else {
+          name = split[0] + split[1];
+        }
+
+        parseAddend(variableBuilders, name, lineNo, sign, linComb);
         sign = Sign.UNDEF;
       }
     }
