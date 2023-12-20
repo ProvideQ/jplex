@@ -90,7 +90,7 @@ public class LpFileReader {
       "[a-zA-Z\\!\"#\\$%&\\(\\)/,;\\?`'\\{\\}\\|~_][a-zA-Z0-9\\!\"#\\$%&\\(\\)/,\\.;\\?`'\\{\\}\\|~_]*";
 
   private ImmutableList<Objective> objectives;
-  private ImmutableList<Constraint> constraints;
+  private ImmutableList<Constraint> constraints = Lists.immutable.empty();;
   private ImmutableMap<String, Variable> variables;
   private Section currentSection;
   private int currentLineNumber;
@@ -117,9 +117,9 @@ public class LpFileReader {
     try {
       final var objectiveSense = readObjectiveSense(bf);
       objectives = readObjectives(bf, variableBuilders, objectiveSense);
-      constraints = readConstraints(bf, variableBuilders);
       while (currentSection != Section.END) {
         switch (currentSection) {
+          case CONSTRAINTS -> constraints = readConstraints(bf, variableBuilders);
           case BOUNDS -> readBounds(bf, variableBuilders);
           case BINARY -> readBinary(bf, variableBuilders);
           case GENERAL -> readGeneral(bf, variableBuilders);
@@ -191,7 +191,7 @@ public class LpFileReader {
     ensureSection(Section.OBJECTIVE);
     final MutableList<ObjectiveBuilder> builders = Lists.mutable.empty();
     String line = getNextProperLine(bufferedReader);
-    while(!sectionReached.test(line, Section.CONSTRAINTS)) {
+    while(!sectionReached.test(line, Section.CONSTRAINTS) && !sectionReached.test(line, Section.END)) {
       final int colonIndex = line.indexOf(':');
       if (colonIndex != -1) { // objective function name found; add new builder
         final var name = getName(line, 0, colonIndex, currentLineNumber);
@@ -205,7 +205,7 @@ public class LpFileReader {
       builders.getLast().mergeCoefficients(linComb);
       line = getNextProperLine(bufferedReader);
     }
-    currentSection = Section.CONSTRAINTS;
+    currentSection = getSection.apply(line, List.of(Section.CONSTRAINTS, Section.END));
     LOGGER.debug("Switching to section {}.", currentSection);
     return builders.collect(ObjectiveBuilder::build).toImmutable();
   }
