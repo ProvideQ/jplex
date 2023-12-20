@@ -193,8 +193,10 @@ public class LpFileReader {
     String line = getNextProperLine(bufferedReader);
     while(!sectionReached.test(line, Section.CONSTRAINTS) && !sectionReached.test(line, Section.END)) {
       final int colonIndex = line.indexOf(':');
-      if (colonIndex != -1) { // objective function name found; add new builder
-        final var name = getName(line, 0, colonIndex, currentLineNumber);
+      if (colonIndex != -1 || builders.isEmpty()) {
+        // objective function name found or no builder was initialized yet
+        // add new builder
+        final var name = colonIndex == -1 ? "default" : getName(line, 0, colonIndex, currentLineNumber);
         LOGGER.trace("Found objective name: {}.", name);
         final var builder = new ObjectiveBuilder().setSense(objectiveSense).setName(name);
         builders.add(builder);
