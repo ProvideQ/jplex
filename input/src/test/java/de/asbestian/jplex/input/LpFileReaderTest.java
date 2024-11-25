@@ -98,8 +98,8 @@ class LpFileReaderTest {
   }
 
   @Test
-  void qubo() {
-    final var path = "src/test/resources/qubo.lp";
+  void quadratic() {
+    final var path = "src/test/resources/quadratic.lp";
 
     final LpFileReader input = new LpFileReader(path);
 
