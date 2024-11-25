@@ -13,8 +13,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.StringTokenizer;
-import java.util.function.BiFunction;
-import java.util.function.BiPredicate;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.eclipse.collections.api.factory.Lists;
@@ -54,13 +52,6 @@ public class LpFileReader {
 
     private final ImmutableList<String> representation;
   }
-
-  private static final BiPredicate<String, Section> sectionReached = (line, section) -> section.rep().anyMatch(line::equalsIgnoreCase);
-
-  private static final BiPredicate<String, List<Section>> notReached = (line, list) -> list.stream().noneMatch(sec -> sectionReached.test(line, sec));
-
-  private static final BiFunction<String, List<Section>, Section> getSection = (line, allowed) -> allowed.stream().filter(sec -> sectionReached.test(line, sec)).findFirst()
-      .orElseThrow(() -> new InputException(String.format("No section found. Expected sections: %s", allowed)));
 
   private void ensureSection(final Section expected) {
     if (currentSection != expected) {
@@ -191,7 +182,7 @@ public class LpFileReader {
     ensureSection(Section.OBJECTIVE);
     final MutableList<ObjectiveBuilder> builders = Lists.mutable.empty();
     String line = getNextProperLine(bufferedReader);
-    while(!sectionReached.test(line, Section.CONSTRAINTS) && !sectionReached.test(line, Section.END)) {
+    while(notReached(line, Section.CONSTRAINTS, Section.END)) {
       final int colonIndex = line.indexOf(':');
       if (colonIndex != -1 || builders.isEmpty()) {
         // objective function name found or no builder was initialized yet
@@ -207,7 +198,7 @@ public class LpFileReader {
       builders.getLast().mergeCoefficients(linComb);
       line = getNextProperLine(bufferedReader);
     }
-    currentSection = getSection.apply(line, List.of(Section.CONSTRAINTS, Section.END));
+    currentSection = getSection(line, List.of(Section.CONSTRAINTS, Section.END));
     LOGGER.debug("Switching to section {}.", currentSection);
     return builders.collect(ObjectiveBuilder::build).toImmutable();
   }
@@ -221,7 +212,7 @@ public class LpFileReader {
     ConstraintBuilder consBuilder = null;
     final var sections = List.of(Section.BOUNDS, Section.BINARY, Section.GENERAL, Section.END);
     var line = getNextProperLine(bufferedReader);
-    while (notReached.test(line, sections)) {
+    while (notReached(line, sections)) {
       final int colonIndex = line.indexOf(':');
       if (colonIndex != -1) { // constraint name found
         final var name = getName(line, 0, colonIndex, currentLineNumber);
@@ -252,7 +243,7 @@ public class LpFileReader {
       }
       line = getNextProperLine(bufferedReader);
     }
-    currentSection = getSection.apply(line, sections);
+    currentSection = getSection(line, sections);
     LOGGER.debug("Switching to section {}.", currentSection);
     return constraints.toImmutable();
 }
@@ -262,12 +253,12 @@ public class LpFileReader {
     ensureSection(Section.BOUNDS);
     final var sections = List.of(Section.BINARY, Section.GENERAL, Section.END);
     var line = getNextProperLine(bufferedReader);
-    while (notReached.test(line, sections)) {
+    while (notReached(line, sections)) {
       LOGGER.trace("Parsing line {}: {}", currentLineNumber, line);
       parseBound(line, variableBuilders);
       line = getNextProperLine(bufferedReader);
     }
-    currentSection = getSection.apply(line, sections);
+    currentSection = getSection(line, sections);
     LOGGER.debug("Switching to section {}.", currentSection);
   }
 
@@ -275,7 +266,7 @@ public class LpFileReader {
       final Section expected, final List<Section> allowed, final VariableType type) throws IOException {
     ensureSection(expected);
     var line = getNextProperLine(bufferedReader);
-    while(notReached.test(line, allowed)) {
+    while(notReached(line, allowed)) {
       final var names = line.split("\\s");
       for (final var name : names) {
         var id = getVariableIdentifier(name);
@@ -283,7 +274,7 @@ public class LpFileReader {
       }
       line = getNextProperLine(bufferedReader);
     }
-    currentSection = getSection.apply(line, allowed);
+    currentSection = getSection(line, allowed);
     LOGGER.debug("Switching to section {}.", currentSection);
   }
 
@@ -520,6 +511,24 @@ public class LpFileReader {
     }
     LOGGER.trace("Found {} {}", sign.value * coeff, name);
     linComb.merge(id, sign.value * coeff, Double::sum);
+  }
+
+  private static boolean notReached(String line, Section... sections) {
+    return notReached(line, List.of(sections));
+  }
+
+  private static boolean notReached(String line, List<Section> list) {
+    return list.stream().noneMatch(sec -> sectionReached(line, sec));
+  }
+
+  private static boolean sectionReached(String line, Section section) {
+    return section.rep().anyMatch(line::equalsIgnoreCase);
+  }
+
+  private static Section getSection(String line, List<Section> allowed) {
+    return allowed.stream().filter(sec -> sectionReached(line, sec)).findFirst()
+        .orElseThrow(() -> new InputException(
+            String.format("No section found. Expected sections: %s", allowed)));
   }
 
   private static int getSummandSplitIndex(final String expr) {
