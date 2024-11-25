@@ -6,6 +6,7 @@ import de.asbestian.jplex.input.Objective.ObjectiveBuilder;
 import de.asbestian.jplex.input.Objective.ObjectiveSense;
 import de.asbestian.jplex.input.Variable.VariableBuilder;
 import de.asbestian.jplex.input.Variable.VariableType;
+import de.asbestian.jplex.input.Term.TermBuilder;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -107,7 +108,7 @@ public class LpFileReader {
     final MutableMap<String, VariableBuilder> variableBuilders = new UnifiedMap<>();
     try {
       final var objectiveSense = readObjectiveSense(bf);
-      objectives = readObjectives(bf, variableBuilders, objectiveSense);
+      var objectiveBuilders = readObjectives(bf, variableBuilders, objectiveSense);
       while (currentSection != Section.END) {
         switch (currentSection) {
           case CONSTRAINTS -> constraints = readConstraints(bf, variableBuilders);
@@ -119,6 +120,7 @@ public class LpFileReader {
         }
       }
       variables = variableBuilders.collectValues((key, value) -> value.build()).toImmutable();
+      objectives = objectiveBuilders.collect(ObjectiveBuilder::build);
     } catch (final IOException | InputException e) {
       LOGGER.error("Problem reading section {}", currentSection);
       LOGGER.error(e.getMessage());
@@ -174,7 +176,7 @@ public class LpFileReader {
     }
   }
 
-  private ImmutableList<Objective> readObjectives(
+  private ImmutableList<ObjectiveBuilder> readObjectives(
       final BufferedReader bufferedReader,
       final MutableMap<String, VariableBuilder> variableBuilders,
       final ObjectiveSense objectiveSense)
@@ -200,7 +202,7 @@ public class LpFileReader {
     }
     currentSection = getSection(line, List.of(Section.CONSTRAINTS, Section.END));
     LOGGER.debug("Switching to section {}.", currentSection);
-    return builders.collect(ObjectiveBuilder::build).toImmutable();
+    return builders.toImmutable();
   }
 
   ImmutableList<Constraint> readConstraints(
@@ -415,12 +417,12 @@ public class LpFileReader {
     return line.strip();
   }
 
-  private static ImmutableList<Term> parseTerms(
+  private static ImmutableList<TermBuilder> parseTerms(
       final MutableMap<String, VariableBuilder> variableBuilders,
       final String expr,
       final int lineNo)
       throws InputException {
-    final MutableList<Term> terms = Lists.mutable.empty();
+    final MutableList<TermBuilder> termBuilders = Lists.mutable.empty();
     final var exprTokens = new StringTokenizer(expr, "+-", true);
     var sign = Sign.PLUS;
     while (exprTokens.hasMoreTokens()) {
@@ -450,15 +452,15 @@ public class LpFileReader {
           name = split[0] + split[1];
         }
 
-        var term = parseTerm(variableBuilders, name, lineNo, sign);
-        Utility.mergeTerm(terms, term);
+        var termBuilder = parseTerm(variableBuilders, name, lineNo, sign);
+        termBuilders.add(termBuilder);
         sign = Sign.UNDEF;
       }
     }
-    return terms.toImmutable();
+    return termBuilders.toImmutable();
   }
 
-  private static Term parseTerm(
+  private static TermBuilder parseTerm(
       final MutableMap<String, VariableBuilder> variableBuilders,
       final String expr,
       final int currentLine,
@@ -497,14 +499,15 @@ public class LpFileReader {
     }
 
     var variables = Lists.immutable.fromStream(variableNames.stream()
-        .map(n -> variableBuilders.getIfAbsentPut(n, () -> new VariableBuilder().setName(n)))
-        .map(VariableBuilder::build));
+        .map(n -> variableBuilders.getIfAbsentPut(n, () -> new VariableBuilder().setName(n))));
 
     var signedCoeff = sign.value * coeff;
-    var term = new Term(signedCoeff, variables);
-    LOGGER.trace("Found {}", term);
+    var vars = String.join(" * ", variableNames);
+    LOGGER.trace("Found {} * {}", signedCoeff, vars);
 
-    return term;
+    return new TermBuilder()
+        .setCoefficient(signedCoeff)
+        .addMultiplicands(variables);
   }
 
   private static boolean notReached(String line, Section... sections) {

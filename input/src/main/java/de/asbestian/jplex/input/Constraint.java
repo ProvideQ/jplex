@@ -1,5 +1,6 @@
 package de.asbestian.jplex.input;
 
+import de.asbestian.jplex.input.Term.TermBuilder;
 import java.util.Arrays;
 import java.util.Objects;
 import org.eclipse.collections.api.factory.Lists;
@@ -42,7 +43,7 @@ public record Constraint(String name, int lineNumber, ImmutableList<Term> terms,
   public static final class ConstraintBuilder {
 
     private String name = null;
-    private final MutableList<Term> terms = Lists.mutable.empty();
+    private final MutableList<Term.TermBuilder> terms = Lists.mutable.empty();
     private Integer lineNumber = null;
     private ConstraintSense sense = null;
     private Double rhs = null;
@@ -57,10 +58,8 @@ public record Constraint(String name, int lineNumber, ImmutableList<Term> terms,
       return this;
     }
 
-    public ConstraintBuilder addTerms(final ImmutableList<Term> newTerms) {
-      for (Term newTerm : newTerms) {
-        Utility.mergeTerm(terms, newTerm);
-      }
+    public ConstraintBuilder addTerms(final ImmutableList<TermBuilder> newTerms) {
+      terms.addAll(newTerms.castToList());
 
       return this;
     }
@@ -76,7 +75,8 @@ public record Constraint(String name, int lineNumber, ImmutableList<Term> terms,
     }
 
     public Constraint build() {
-      return new Constraint(name, lineNumber, terms.toImmutable(), sense, rhs);
+      var builtTerms = TermBuilder.buildTerms(terms.toImmutable());
+      return new Constraint(name, lineNumber, builtTerms, sense, rhs);
     }
   }
 

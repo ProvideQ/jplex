@@ -1,5 +1,6 @@
 package de.asbestian.jplex.input;
 
+import de.asbestian.jplex.input.Term.TermBuilder;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -51,7 +52,7 @@ public record Objective(String name, ObjectiveSense sense, ImmutableList<Term> t
   public static final class ObjectiveBuilder {
     private String name = null;
     private ObjectiveSense sense = null;
-    private final MutableList<Term> terms = Lists.mutable.empty();
+    private final MutableList<TermBuilder> terms = Lists.mutable.empty();
 
     public ObjectiveBuilder setName(final String value) {
       name = value;
@@ -63,16 +64,14 @@ public record Objective(String name, ObjectiveSense sense, ImmutableList<Term> t
       return this;
     }
 
-    public ObjectiveBuilder addTerms(final ImmutableList<Term> newTerms) {
-      for (Term newTerm : newTerms) {
-        Utility.mergeTerm(terms, newTerm);
-      }
+    public ObjectiveBuilder addTerms(final ImmutableList<TermBuilder> newTerms) {
+      terms.addAll(newTerms.castToList());
 
       return this;
     }
 
     public Objective build() {
-      return new Objective(name, sense, terms.toImmutable());
+      return new Objective(name, sense, TermBuilder.buildTerms(terms.toImmutable()));
     }
 
   }
