@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import de.asbestian.jplex.input.Objective.ObjectiveSense;
 import de.asbestian.jplex.input.Variable.VariableType;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /** @author Sebastian Schenker */
@@ -78,22 +79,22 @@ class LpFileReaderTest {
     assertEquals(1, input.getContinuousVariables().size());
     assertEquals(1, input.getIntegerVariables().size());
     assertEquals(1, input.getBinaryVariables().size());
-    assertEquals("x", x.name().toString());
+    assertEquals("x", x.name());
     assertEquals(Double.NEGATIVE_INFINITY, x.lb());
     assertEquals(Double.POSITIVE_INFINITY, x.ub());
     assertEquals(VariableType.CONTINUOUS, x.type());
-    assertEquals("y", y.name().toString());
+    assertEquals("y", y.name());
     assertEquals(10., y.lb());
     assertEquals(12, y.ub());
     assertEquals(VariableType.INTEGER, y.type());
-    assertEquals("z", z.name().toString());
+    assertEquals("z", z.name());
     assertEquals(0, z.lb());
     assertEquals(1, z.ub());
     assertEquals(VariableType.BINARY, z.type());
     assertEquals(ObjectiveSense.MAX, objective.sense());
-    assertEquals(-2, objective.getCoeff(x));
-    assertEquals(-3, objective.getCoeff(y));
-    assertEquals(4, objective.getCoeff(z));
+    assertEquals(Optional.of(-2.0), objective.getTermCoefficient(x));
+    assertEquals(Optional.of(-3.0), objective.getTermCoefficient(y));
+    assertEquals(Optional.of(4.0), objective.getTermCoefficient(z));
   }
 
   @Test
@@ -103,7 +104,8 @@ class LpFileReaderTest {
     final LpFileReader input = new LpFileReader(path);
 
     assertEquals(1, input.getNumberOfObjectives());
-    assertEquals(27, input.getNumberOfVariables());
+    assertEquals(27, input.getObjective(0).terms().size());
+    assertEquals(6, input.getNumberOfVariables());
     assertEquals(0, input.getNumberOfConstraints());
   }
 }

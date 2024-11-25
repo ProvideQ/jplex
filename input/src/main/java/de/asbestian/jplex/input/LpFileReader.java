@@ -82,7 +82,7 @@ public class LpFileReader {
 
   private ImmutableList<Objective> objectives;
   private ImmutableList<Constraint> constraints = Lists.immutable.empty();
-  private ImmutableMap<VariableIdentifier, Variable> variables;
+  private ImmutableMap<String, Variable> variables;
   private Section currentSection;
   private int currentLineNumber;
 
@@ -104,7 +104,7 @@ public class LpFileReader {
   private void read(BufferedReader bf) {
     currentSection = Section.START;
     currentLineNumber = 0;
-    final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders = new UnifiedMap<>();
+    final MutableMap<String, VariableBuilder> variableBuilders = new UnifiedMap<>();
     try {
       final var objectiveSense = readObjectiveSense(bf);
       objectives = readObjectives(bf, variableBuilders, objectiveSense);
@@ -167,22 +167,22 @@ public class LpFileReader {
         LOGGER.debug("Found minimisation direction.");
         return ObjectiveSense.MIN;
       }
-    }
-    else {
+    } else {
       throw new InputException(
-          String.format("Line %d: unrecognised optimisation direction %s.", currentLineNumber, line));
+          String.format("Line %d: unrecognised optimisation direction %s.", currentLineNumber,
+              line));
     }
   }
 
   private ImmutableList<Objective> readObjectives(
       final BufferedReader bufferedReader,
-      final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders,
+      final MutableMap<String, VariableBuilder> variableBuilders,
       final ObjectiveSense objectiveSense)
       throws IOException, InputException {
     ensureSection(Section.OBJECTIVE);
     final MutableList<ObjectiveBuilder> builders = Lists.mutable.empty();
     String line = getNextProperLine(bufferedReader);
-    while(notReached(line, Section.CONSTRAINTS, Section.END)) {
+    while (notReached(line, Section.CONSTRAINTS, Section.END)) {
       final int colonIndex = line.indexOf(':');
       if (colonIndex != -1 || builders.isEmpty()) {
         // objective function name found or no builder was initialized yet
@@ -194,8 +194,8 @@ public class LpFileReader {
         line = line.substring(colonIndex + 1).trim();
       }
       LOGGER.trace("Parsing line {}: {}", currentLineNumber, line);
-      final var linComb = parseLinComb(variableBuilders, line, currentLineNumber);
-      builders.getLast().mergeCoefficients(linComb);
+      final var terms = parseTerms(variableBuilders, line, currentLineNumber);
+      builders.getLast().addTerms(terms);
       line = getNextProperLine(bufferedReader);
     }
     currentSection = getSection(line, List.of(Section.CONSTRAINTS, Section.END));
@@ -205,7 +205,7 @@ public class LpFileReader {
 
   ImmutableList<Constraint> readConstraints(
       final BufferedReader bufferedReader,
-      final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders)
+      final MutableMap<String, VariableBuilder> variableBuilders)
       throws IOException, InputException {
     ensureSection(Section.CONSTRAINTS);
     final MutableList<Constraint> constraints = Lists.mutable.empty();
@@ -226,16 +226,16 @@ public class LpFileReader {
         throw new InputException("Constraint builder is null.");
       }
       if (result instanceof Unit unit) {
-        final var lhs = parseLinComb(variableBuilders, unit.line(), currentLineNumber);
-        consBuilder.mergeCoefficients(lhs);
+        final var lhs = parseTerms(variableBuilders, unit.line(), currentLineNumber);
+        consBuilder.addTerms(lhs);
       } else if (result instanceof Pair pair) {
         consBuilder.setSense(pair.sense);
         consBuilder.setRhs(pair.rhs);
         constraints.add(consBuilder.build());
         consBuilder = null;
       } else if (result instanceof Triple triple) {
-        final var lhs = parseLinComb(variableBuilders, triple.line(), currentLineNumber);
-        consBuilder.mergeCoefficients(lhs);
+        final var lhs = parseTerms(variableBuilders, triple.line(), currentLineNumber);
+        consBuilder.addTerms(lhs);
         consBuilder.setSense(triple.sense);
         consBuilder.setRhs(triple.rhs);
         constraints.add(consBuilder.build());
@@ -246,10 +246,10 @@ public class LpFileReader {
     currentSection = getSection(line, sections);
     LOGGER.debug("Switching to section {}.", currentSection);
     return constraints.toImmutable();
-}
+  }
 
   private void readBounds(final BufferedReader bufferedReader,
-      final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders) throws IOException, InputException {
+      final MutableMap<String, VariableBuilder> variableBuilders) throws IOException, InputException {
     ensureSection(Section.BOUNDS);
     final var sections = List.of(Section.BINARY, Section.GENERAL, Section.END);
     var line = getNextProperLine(bufferedReader);
@@ -262,15 +262,14 @@ public class LpFileReader {
     LOGGER.debug("Switching to section {}.", currentSection);
   }
 
-  private void readType(final BufferedReader bufferedReader, final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders,
+  private void readType(final BufferedReader bufferedReader, final MutableMap<String, VariableBuilder> variableBuilders,
       final Section expected, final List<Section> allowed, final VariableType type) throws IOException {
     ensureSection(expected);
     var line = getNextProperLine(bufferedReader);
-    while(notReached(line, allowed)) {
+    while (notReached(line, allowed)) {
       final var names = line.split("\\s");
       for (final var name : names) {
-        var id = getVariableIdentifier(name);
-        variableBuilders.get(id).setType(type);
+        variableBuilders.get(name).setType(type);
       }
       line = getNextProperLine(bufferedReader);
     }
@@ -280,28 +279,25 @@ public class LpFileReader {
 
 
   private void readBinary(final BufferedReader bufferedReader,
-      final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders) throws IOException {
+      final MutableMap<String, VariableBuilder> variableBuilders) throws IOException {
     readType(bufferedReader, variableBuilders, Section.BINARY, List.of(Section.GENERAL, Section.END), VariableType.BINARY);
   }
 
   private void readGeneral(final BufferedReader bufferedReader,
-      final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders) throws IOException {
+      final MutableMap<String, VariableBuilder> variableBuilders) throws IOException {
     readType(bufferedReader, variableBuilders, Section.GENERAL, List.of(Section.BINARY, Section.END), VariableType.INTEGER);
   }
 
   private static double parseValue(final String expr, final int currentLine) {
     if (Stream.of("inf", "+inf", "infinity", "+infinity").anyMatch(expr::equalsIgnoreCase)) {
       return Double.POSITIVE_INFINITY;
-    }
-    else if (Stream.of("-inf", "-infinity").anyMatch(expr::equalsIgnoreCase)) {
+    } else if (Stream.of("-inf", "-infinity").anyMatch(expr::equalsIgnoreCase)) {
       return Double.NEGATIVE_INFINITY;
-    }
-    else {
+    } else {
       final double bound;
       try {
         bound = Double.parseDouble(expr);
-      }
-      catch (final NumberFormatException e) {
+      } catch (final NumberFormatException e) {
         throw new InputException(String.format("Line %d: %s is not a valid number.", currentLine, expr));
       }
       return bound;
@@ -309,16 +305,16 @@ public class LpFileReader {
   }
 
   // throws if not found
-  private static VariableBuilder getVariableBuilder(final String name, final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders, final int currentLine) {
-    final VariableIdentifier id = getVariableIdentifier(name);
-    final var variable = variableBuilders.get(id);
+  private static VariableBuilder getVariableBuilder(final String name, final MutableMap<String, VariableBuilder> variableBuilders, final int currentLine) {
+    final var variable = variableBuilders.get(name);
     if (variable == null) {
-      throw new InputException(String.format("Line %d: unknown variable name %s", currentLine, id));
+      throw new InputException(
+          String.format("Line %d: unknown variable name %s", currentLine, name));
     }
     return variable;
   }
 
-  private void parseBound(final String line, final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders) {
+  private void parseBound(final String line, final MutableMap<String, VariableBuilder> variableBuilders) {
     var tokens = line.split("<=");
     switch (tokens.length) {
       case 1 -> { // var = bound || var free
@@ -344,15 +340,13 @@ public class LpFileReader {
         }
       }
       case 2 -> { // var <= bound || bound <= var
-        final VariableIdentifier id = getVariableIdentifier(tokens[0].trim());
-        var variable = variableBuilders.get(id);
+        var variable = variableBuilders.get(tokens[0].trim());
         if (variable == null) {
           LOGGER.trace("Parsing one-sided lower bound.");
           variable = getVariableBuilder(tokens[1].trim(), variableBuilders, currentLineNumber);
           final var bound = parseValue(tokens[0].trim(), currentLineNumber);
           variable.setLb(bound);
-        }
-        else {
+        } else {
           LOGGER.trace("Parsing one-sided upper bound.");
           final var bound = parseValue(tokens[1].trim(), currentLineNumber);
           variable.setUb(bound);
@@ -371,7 +365,7 @@ public class LpFileReader {
     }
   }
 
-   private ParsedConstraintLine parseConstraintLine(final String line, final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders) {
+  private ParsedConstraintLine parseConstraintLine(final String line, final MutableMap<String, VariableBuilder> variableBuilders) {
     final var sensePattern = Pattern.compile("[><=]{1,2}");
     final var senseMatcher = sensePattern.matcher(line);
     if (senseMatcher.find()) { // lhs sense rhs || sense rhs
@@ -382,17 +376,14 @@ public class LpFileReader {
       if (tokens.size() == 1) { // sense rhs
         final var rhs = parseValue(tokens.get(0), currentLineNumber);
         return new Pair(constraintSense, rhs);
-      }
-      else if (tokens.size() == 2) { // lhs sense rhs
+      } else if (tokens.size() == 2) { // lhs sense rhs
         final var rhs = parseValue(tokens.get(1), currentLineNumber);
         return new Triple(tokens.get(0), constraintSense, rhs);
-      }
-      else {
+      } else {
         throw new InputException(String.format("Line %d: invalid constraint line %s.",
             currentLineNumber, line));
       }
-    }
-    else { // only lhs
+    } else { // only lhs
       return new Unit(line.trim());
     }
   }
@@ -403,26 +394,6 @@ public class LpFileReader {
       throw new InputException(String.format("Line %d: invalid name %s.", currentLine, name));
     }
     return name;
-  }
-
-  private static VariableIdentifier getVariableIdentifier(final String str) {
-    String[] factors = str.split("\\*");
-    if (factors.length > 1) {
-      return new VariableIdentifier(Lists.immutable.of(factors));
-    } else {
-      // Check exponent
-      factors = str.split("\\^");
-      if (factors.length == 1) {
-        return new VariableIdentifier(Lists.immutable.of(factors[0].trim()));
-      } else if (factors.length == 2) {
-        var variable = factors[0].trim();
-        var exponent = Integer.parseInt(factors[1].trim());
-        var limit = Stream.generate(() -> variable).limit(exponent);
-        return new VariableIdentifier(Lists.immutable.fromStream(limit));
-      } else {
-        throw new InputException("More than one exponent found.");
-      }
-    }
   }
 
   /**
@@ -444,12 +415,12 @@ public class LpFileReader {
     return line.strip();
   }
 
-  private static ImmutableMap<VariableIdentifier, Double> parseLinComb(
-      final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders,
+  private static ImmutableList<Term> parseTerms(
+      final MutableMap<String, VariableBuilder> variableBuilders,
       final String expr,
       final int lineNo)
       throws InputException {
-    final MutableMap<VariableIdentifier, Double> linComb = new UnifiedMap<>();
+    final MutableList<Term> terms = Lists.mutable.empty();
     final var exprTokens = new StringTokenizer(expr, "+-", true);
     var sign = Sign.PLUS;
     while (exprTokens.hasMoreTokens()) {
@@ -479,38 +450,61 @@ public class LpFileReader {
           name = split[0] + split[1];
         }
 
-        parseAddend(variableBuilders, name, lineNo, sign, linComb);
+        var term = parseTerm(variableBuilders, name, lineNo, sign);
+        Utility.mergeTerm(terms, term);
         sign = Sign.UNDEF;
       }
     }
-    return linComb.toImmutable();
+    return terms.toImmutable();
   }
 
-  private static void parseAddend(
-      final MutableMap<VariableIdentifier, VariableBuilder> variableBuilders,
+  private static Term parseTerm(
+      final MutableMap<String, VariableBuilder> variableBuilders,
       final String expr,
       final int currentLine,
-      final Sign sign,
-      final MutableMap<VariableIdentifier, Double> linComb)
+      final Sign sign)
       throws InputException {
     final int splitIndex = getSummandSplitIndex(expr);
     if (splitIndex == -1) {
-      throw new InputException(String.format("Line %d: %s is not a valid addend.", currentLine, expr));
+      throw new InputException(
+          String.format("Line %d: %s is not a valid addend.", currentLine, expr));
     }
     double coeff = 1;
     if (splitIndex > 0) {
       final String coeffStr = expr.substring(0, splitIndex).trim();
       coeff = parseValue(coeffStr, currentLine);
     }
-    final String name = getName(expr, splitIndex, expr.length(), currentLine);
-    final VariableIdentifier id = getVariableIdentifier(name);
-    final var variable = variableBuilders.get(id);
-    if (variable == null) {
-      final var varBuilder = new VariableBuilder().setName(id);
-      variableBuilders.put(id, varBuilder);
+
+    // Get all variables after the coefficient
+    // Can be either single variable, product of variables or exponent of a variable
+    final String variablesStr = expr.substring(splitIndex).trim();
+    String[] factors = variablesStr.split("\\*");
+    List<String> variableNames;
+    if (factors.length > 1) {
+      variableNames = Arrays.stream(factors).map(String::trim).toList();
+    } else {
+      // Check exponent
+      factors = variablesStr.split("\\^");
+      if (factors.length == 1) {
+        variableNames = List.of(factors[0].trim());
+      } else if (factors.length == 2) {
+        var variable = factors[0].trim();
+        var exponent = Integer.parseInt(factors[1].trim());
+        variableNames = Stream.generate(() -> variable).limit(exponent).toList();
+      } else {
+        throw new InputException("More than one exponent found.");
+      }
     }
-    LOGGER.trace("Found {} {}", sign.value * coeff, name);
-    linComb.merge(id, sign.value * coeff, Double::sum);
+
+    var variables = Lists.immutable.fromStream(variableNames.stream()
+        .map(n -> variableBuilders.getIfAbsentPut(n, () -> new VariableBuilder().setName(n)))
+        .map(VariableBuilder::build));
+
+    var signedCoeff = sign.value * coeff;
+    var term = new Term(signedCoeff, variables);
+    LOGGER.trace("Found {}", term);
+
+    return term;
   }
 
   private static boolean notReached(String line, Section... sections) {

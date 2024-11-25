@@ -1,11 +1,11 @@
 package de.asbestian.jplex.input;
 
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.eclipse.collections.api.list.ImmutableList;
 
-public record VariableIdentifier(
-    ImmutableList<String> multiplicands) {
-  public VariableIdentifier {
+public record Term(double coefficient, ImmutableList<Variable> multiplicands) {
+  public Term {
     if (multiplicands.isEmpty()) {
       throw new InputException("Expected non-empty list of multiplicands.");
     }
@@ -22,10 +22,9 @@ public record VariableIdentifier(
       return false;
     }
 
-    VariableIdentifier that = (VariableIdentifier) o;
-    return multiplicands.size() == that.multiplicands.size()
-        && multiplicands.containsAll(that.multiplicands.castToCollection())
-        && that.multiplicands.containsAll(multiplicands.castToCollection());
+    Term that = (Term) o;
+    return coefficient == that.coefficient
+        && Utility.variablesEqual(multiplicands, that.multiplicands);
   }
 
   @Override
@@ -34,6 +33,7 @@ public record VariableIdentifier(
   }
 
   private String getUniqueString() {
-    return multiplicands.makeString(" * ");
+    return coefficient + " * " +
+        multiplicands.stream().map(Variable::name).collect(Collectors.joining(" * "));
   }
 }

@@ -2,14 +2,14 @@ package de.asbestian.jplex.input;
 
 import java.util.Arrays;
 import java.util.Objects;
-import org.eclipse.collections.api.map.ImmutableMap;
-import org.eclipse.collections.api.map.MutableMap;
-import org.eclipse.collections.impl.map.mutable.UnifiedMap;
+import org.eclipse.collections.api.factory.Lists;
+import org.eclipse.collections.api.list.ImmutableList;
+import org.eclipse.collections.api.list.MutableList;
 
 /**
  * @author Sebastian Schenker
  */
-public record Constraint(String name, int lineNumber, ImmutableMap<VariableIdentifier, Double> coefficients, ConstraintSense sense, double rhs) {
+public record Constraint(String name, int lineNumber, ImmutableList<Term> terms, ConstraintSense sense, double rhs) {
 
   public enum ConstraintSense {
     LE("<="),
@@ -34,7 +34,7 @@ public record Constraint(String name, int lineNumber, ImmutableMap<VariableIdent
       throw new InputException("Expected positive line number.");
     }
     Objects.requireNonNull(sense);
-    if (coefficients.isEmpty()) {
+    if (terms.isEmpty()) {
       throw new InputException("Expected non-empty coefficient map.");
     }
   }
@@ -42,7 +42,7 @@ public record Constraint(String name, int lineNumber, ImmutableMap<VariableIdent
   public static final class ConstraintBuilder {
 
     private String name = null;
-    private final MutableMap<VariableIdentifier, Double> coefficients = new UnifiedMap<>();
+    private final MutableList<Term> terms = Lists.mutable.empty();
     private Integer lineNumber = null;
     private ConstraintSense sense = null;
     private Double rhs = null;
@@ -57,8 +57,11 @@ public record Constraint(String name, int lineNumber, ImmutableMap<VariableIdent
       return this;
     }
 
-    public ConstraintBuilder mergeCoefficients(final ImmutableMap<VariableIdentifier, Double> map) {
-      map.forEachKeyValue((key, value) -> coefficients.merge(key, value, Double::sum));
+    public ConstraintBuilder addTerms(final ImmutableList<Term> newTerms) {
+      for (Term newTerm : newTerms) {
+        Utility.mergeTerm(terms, newTerm);
+      }
+
       return this;
     }
 
@@ -73,7 +76,7 @@ public record Constraint(String name, int lineNumber, ImmutableMap<VariableIdent
     }
 
     public Constraint build() {
-      return new Constraint(name, lineNumber, coefficients.toImmutable(), sense, rhs);
+      return new Constraint(name, lineNumber, terms.toImmutable(), sense, rhs);
     }
   }
 

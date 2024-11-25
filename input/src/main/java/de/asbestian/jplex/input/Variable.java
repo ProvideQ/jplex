@@ -5,7 +5,7 @@ import java.util.Objects;
 /**
  * @author Sebastian Schenker
  */
-public record Variable(VariableIdentifier name, VariableType type, double lb, double ub) {
+public record Variable(String name, VariableType type, double lb, double ub) {
 
   public enum VariableType {
     BINARY,
@@ -21,12 +21,12 @@ public record Variable(VariableIdentifier name, VariableType type, double lb, do
 
   public static final class VariableBuilder {
 
-    private VariableIdentifier name = null;
+    private String name = null;
     private VariableType type = VariableType.CONTINUOUS;
     private Double lb = 0.;
     private Double ub = Double.POSITIVE_INFINITY;
 
-    public VariableBuilder setName(final VariableIdentifier value) {
+    public VariableBuilder setName(final String value) {
       this.name = value;
       return this;
     }

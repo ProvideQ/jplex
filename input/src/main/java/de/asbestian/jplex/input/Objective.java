@@ -1,17 +1,16 @@
 package de.asbestian.jplex.input;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 import org.eclipse.collections.api.factory.Lists;
 import org.eclipse.collections.api.list.ImmutableList;
-import org.eclipse.collections.api.map.ImmutableMap;
-import org.eclipse.collections.api.map.MutableMap;
-import org.eclipse.collections.impl.map.mutable.UnifiedMap;
+import org.eclipse.collections.api.list.MutableList;
 
 /**
  * @author Sebastian Schenker
  */
-public record Objective(String name, ObjectiveSense sense, ImmutableMap<VariableIdentifier, Double> coefficients) {
+public record Objective(String name, ObjectiveSense sense, ImmutableList<Term> terms) {
 
   public enum ObjectiveSense {
     MAX(Lists.immutable.of("max", "maximise", "maximize", "maximum")),
@@ -35,14 +34,24 @@ public record Objective(String name, ObjectiveSense sense, ImmutableMap<Variable
     // no check on coefficient map in order to allow zero objective
   }
 
-  public double getCoeff(final Variable var) {
-    return coefficients.get(var.name());
+  public Optional<Double> getTermCoefficient(final ImmutableList<Variable> variables) {
+    return terms.stream()
+        .filter(t -> Utility.variablesEqual(t.multiplicands(), variables))
+        .findFirst()
+        .map(Term::coefficient);
+  }
+
+  public Optional<Double> getTermCoefficient(final Variable variable) {
+    return terms.stream()
+        .filter(t -> Utility.variablesEqual(t.multiplicands(), Lists.immutable.of(variable)))
+        .findFirst()
+        .map(Term::coefficient);
   }
 
   public static final class ObjectiveBuilder {
     private String name = null;
     private ObjectiveSense sense = null;
-    private final MutableMap<VariableIdentifier, Double> coefficients = new UnifiedMap<>();
+    private final MutableList<Term> terms = Lists.mutable.empty();
 
     public ObjectiveBuilder setName(final String value) {
       name = value;
@@ -54,13 +63,16 @@ public record Objective(String name, ObjectiveSense sense, ImmutableMap<Variable
       return this;
     }
 
-    public ObjectiveBuilder mergeCoefficients(final ImmutableMap<VariableIdentifier, Double> map) {
-      map.forEachKeyValue((key, value) -> coefficients.merge(key, value, Double::sum));
+    public ObjectiveBuilder addTerms(final ImmutableList<Term> newTerms) {
+      for (Term newTerm : newTerms) {
+        Utility.mergeTerm(terms, newTerm);
+      }
+
       return this;
     }
 
     public Objective build() {
-      return new Objective(name, sense, coefficients.toImmutable());
+      return new Objective(name, sense, terms.toImmutable());
     }
 
   }
