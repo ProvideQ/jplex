@@ -11,7 +11,7 @@ import org.eclipse.collections.impl.map.mutable.UnifiedMap;
 /**
  * @author Sebastian Schenker
  */
-public record Objective(String name, ObjectiveSense sense, ImmutableMap<String, Double> coefficients) {
+public record Objective(String name, ObjectiveSense sense, ImmutableMap<VariableIdentifier, Double> coefficients) {
 
   public enum ObjectiveSense {
     MAX(Lists.immutable.of("max", "maximise", "maximize", "maximum")),
@@ -32,9 +32,6 @@ public record Objective(String name, ObjectiveSense sense, ImmutableMap<String, 
   public Objective {
     Objects.requireNonNull(name);
     Objects.requireNonNull(sense);
-    if (name.isBlank()) {
-      throw new InputException("Expected non-blank objective name.");
-    }
     // no check on coefficient map in order to allow zero objective
   }
 
@@ -45,7 +42,7 @@ public record Objective(String name, ObjectiveSense sense, ImmutableMap<String, 
   public static final class ObjectiveBuilder {
     private String name = null;
     private ObjectiveSense sense = null;
-    private final MutableMap<String, Double> coefficients = new UnifiedMap<>();
+    private final MutableMap<VariableIdentifier, Double> coefficients = new UnifiedMap<>();
 
     public ObjectiveBuilder setName(final String value) {
       name = value;
@@ -57,7 +54,7 @@ public record Objective(String name, ObjectiveSense sense, ImmutableMap<String, 
       return this;
     }
 
-    public ObjectiveBuilder mergeCoefficients(final ImmutableMap<String, Double> map) {
+    public ObjectiveBuilder mergeCoefficients(final ImmutableMap<VariableIdentifier, Double> map) {
       map.forEachKeyValue((key, value) -> coefficients.merge(key, value, Double::sum));
       return this;
     }

@@ -5,7 +5,7 @@ import java.util.Objects;
 /**
  * @author Sebastian Schenker
  */
-public record Variable(String name, VariableType type, double lb, double ub) {
+public record Variable(VariableIdentifier name, VariableType type, double lb, double ub) {
 
   public enum VariableType {
     BINARY,
@@ -14,9 +14,6 @@ public record Variable(String name, VariableType type, double lb, double ub) {
   }
 
   public Variable {
-    if (name.isBlank()) {
-      throw new InputException("Expected non-blank variable name.");
-    }
     if (lb > ub) {
       throw new InputException(String.format("Lower bound = %f > %f = upper bound.", lb, ub));
     }
@@ -24,12 +21,12 @@ public record Variable(String name, VariableType type, double lb, double ub) {
 
   public static final class VariableBuilder {
 
-    private String name = null;
+    private VariableIdentifier name = null;
     private VariableType type = VariableType.CONTINUOUS;
     private Double lb = 0.;
     private Double ub = Double.POSITIVE_INFINITY;
 
-    public VariableBuilder setName(final String value) {
+    public VariableBuilder setName(final VariableIdentifier value) {
       this.name = value;
       return this;
     }

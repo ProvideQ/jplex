@@ -78,15 +78,15 @@ class LpFileReaderTest {
     assertEquals(1, input.getContinuousVariables().size());
     assertEquals(1, input.getIntegerVariables().size());
     assertEquals(1, input.getBinaryVariables().size());
-    assertEquals("x", x.name());
+    assertEquals("x", x.name().toString());
     assertEquals(Double.NEGATIVE_INFINITY, x.lb());
     assertEquals(Double.POSITIVE_INFINITY, x.ub());
     assertEquals(VariableType.CONTINUOUS, x.type());
-    assertEquals("y", y.name());
+    assertEquals("y", y.name().toString());
     assertEquals(10., y.lb());
     assertEquals(12, y.ub());
     assertEquals(VariableType.INTEGER, y.type());
-    assertEquals("z", z.name());
+    assertEquals("z", z.name().toString());
     assertEquals(0, z.lb());
     assertEquals(1, z.ub());
     assertEquals(VariableType.BINARY, z.type());

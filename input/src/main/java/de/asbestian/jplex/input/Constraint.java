@@ -9,7 +9,7 @@ import org.eclipse.collections.impl.map.mutable.UnifiedMap;
 /**
  * @author Sebastian Schenker
  */
-public record Constraint(String name, int lineNumber, ImmutableMap<String, Double> coefficients, ConstraintSense sense, double rhs) {
+public record Constraint(String name, int lineNumber, ImmutableMap<VariableIdentifier, Double> coefficients, ConstraintSense sense, double rhs) {
 
   public enum ConstraintSense {
     LE("<="),
@@ -42,7 +42,7 @@ public record Constraint(String name, int lineNumber, ImmutableMap<String, Doubl
   public static final class ConstraintBuilder {
 
     private String name = null;
-    private final MutableMap<String, Double> coefficients = new UnifiedMap<>();
+    private final MutableMap<VariableIdentifier, Double> coefficients = new UnifiedMap<>();
     private Integer lineNumber = null;
     private ConstraintSense sense = null;
     private Double rhs = null;
@@ -57,7 +57,7 @@ public record Constraint(String name, int lineNumber, ImmutableMap<String, Doubl
       return this;
     }
 
-    public ConstraintBuilder mergeCoefficients(final ImmutableMap<String, Double> map) {
+    public ConstraintBuilder mergeCoefficients(final ImmutableMap<VariableIdentifier, Double> map) {
       map.forEachKeyValue((key, value) -> coefficients.merge(key, value, Double::sum));
       return this;
     }
