@@ -78,7 +78,7 @@ public class LpFileReader {
       ParsedConstraintLine {}
 
   private static final String PATTERN =
-      "[a-zA-Z\\!\"#\\$%&\\(\\)/,;\\?`'\\{\\}\\|~_][a-zA-Z0-9^*\\!\"#\\$%&\\(\\)/,\\.;\\?`'\\{\\}\\|~_]*";
+      "[a-zA-Z!\"#$%&()/,;?`'{}|~_][a-zA-Z0-9^*!\"#$%&()/,.;?`'{}|~_]*";
 
   private ImmutableList<Objective> objectives;
   private ImmutableList<Constraint> constraints = Lists.immutable.empty();
