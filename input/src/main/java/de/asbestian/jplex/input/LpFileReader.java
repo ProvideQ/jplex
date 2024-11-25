@@ -440,19 +440,7 @@ public class LpFileReader {
         }
         LOGGER.trace("Parsing {} {}", sign, token);
 
-        String[] split = token.split("\\*", 2);
-        String name;
-
-        if (split.length == 0) {
-          throw new InputException(
-              String.format("Line %d: %s is not a valid variable.", lineNo, token));
-        } else if (split.length == 1) {
-          name = split[0];
-        } else {
-          name = split[0] + split[1];
-        }
-
-        var termBuilder = parseTerm(variableBuilders, name, lineNo, sign);
+        var termBuilder = parseTerm(variableBuilders, token, lineNo, sign);
         termBuilders.add(termBuilder);
         sign = Sign.UNDEF;
       }
@@ -479,7 +467,11 @@ public class LpFileReader {
 
     // Get all variables after the coefficient
     // Can be either single variable, product of variables or exponent of a variable
-    final String variablesStr = expr.substring(splitIndex).trim();
+    String variablesStr = expr.substring(splitIndex).trim();
+    while (variablesStr.startsWith("*")) {
+      variablesStr = variablesStr.substring(1).trim();
+    }
+
     String[] factors = variablesStr.split("\\*");
     List<String> variableNames;
     if (factors.length > 1) {
