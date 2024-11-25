@@ -108,4 +108,16 @@ class LpFileReaderTest {
     assertEquals(6, input.getNumberOfVariables());
     assertEquals(0, input.getNumberOfConstraints());
   }
+
+  @Test
+  void qubo() {
+    final var path = "src/test/resources/qubo.lp";
+
+    final LpFileReader input = new LpFileReader(path);
+
+    assertEquals(1, input.getNumberOfObjectives());
+    assertEquals(10, input.getObjective(0).terms().size());
+    assertEquals(4, input.getNumberOfVariables());
+    assertEquals(0, input.getNumberOfConstraints());
+  }
 }
