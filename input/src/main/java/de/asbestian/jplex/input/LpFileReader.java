@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.StringTokenizer;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.eclipse.collections.api.factory.Lists;
@@ -184,6 +185,7 @@ public class LpFileReader {
     ensureSection(Section.OBJECTIVE);
     final MutableList<ObjectiveBuilder> builders = Lists.mutable.empty();
     String line = getNextProperLine(bufferedReader);
+    boolean isProcessingQuadraticTerms = false;
     while (notReached(line, Section.CONSTRAINTS, Section.END)) {
       final int colonIndex = line.indexOf(':');
       if (colonIndex != -1 || builders.isEmpty()) {
@@ -195,11 +197,105 @@ public class LpFileReader {
         builders.add(builder);
         line = line.substring(colonIndex + 1).trim();
       }
+
+      // Process quadratic term and ensure format [ ... ] / 2
+      int bracketOpenIndex = line.indexOf('[');
+      int bracketCloseIndex = line.indexOf(']');
+
+      if (isProcessingQuadraticTerms) {
+        if (bracketOpenIndex != -1) {
+          // Has opening bracket
+          if (bracketCloseIndex == -1) {
+            // Has opening bracket and no closing bracket
+            throw new InputException(
+                String.format("Line %d: missing closing bracket.", currentLineNumber));
+          } else {
+            // Has opening bracket and closing bracket
+            if (bracketOpenIndex < bracketCloseIndex) {
+              throw new InputException(
+                  String.format("Line %d: closing bracket before opening bracket.",
+                      currentLineNumber));
+            }
+          }
+        } else {
+          // Has no opening bracket
+          if (bracketCloseIndex != -1) {
+            // Has no opening bracket and closing bracket
+            isProcessingQuadraticTerms = false;
+          }
+        }
+      } else {
+        if (bracketOpenIndex != -1) {
+          // Has opening bracket
+          if (bracketCloseIndex != -1) {
+            // Has opening bracket and closing bracket
+            if (bracketCloseIndex < bracketOpenIndex) {
+              throw new InputException(
+                  String.format("Line %d: closing bracket before opening bracket.",
+                      currentLineNumber));
+            }
+          } else {
+            // Has opening bracket and no closing bracket
+            isProcessingQuadraticTerms = true;
+          }
+        } else {
+          // Has no opening bracket
+          if (bracketCloseIndex != -1) {
+            // Has no opening bracket and closing bracket
+            throw new InputException(
+                String.format("Line %d: closing bracket without opening bracket.",
+                    currentLineNumber));
+          }
+        }
+      }
+
+      if (bracketOpenIndex != -1) {
+        // Remove open bracket from string
+        if (bracketOpenIndex == 0) {
+          line = line.substring(1).trim();
+        } else {
+          line = line.substring(0, bracketOpenIndex - 1).trim()
+              + " "
+              + line.substring(bracketOpenIndex + 1).trim();
+        }
+
+        bracketCloseIndex = line.indexOf(']');
+      }
+
+      if (bracketCloseIndex != -1) {
+        // Has closing bracket => has to have / 2 statement right after
+        var firstPart = line.substring(0, bracketCloseIndex).trim();
+        var secondPart = line.substring(bracketCloseIndex + 1).trim();
+
+        Pattern divisionPattern = Pattern.compile("/ *2");
+        Matcher matcher = divisionPattern.matcher(secondPart);
+        if (!matcher.find()) {
+          throw new InputException(
+              String.format("Line %d: expected / 2 statement after closing bracket.",
+                  currentLineNumber));
+        } else if (matcher.start() != 0) {
+          throw new InputException(
+              String.format("Line %d: / 2 statement not at the beginning of the line.",
+                  currentLineNumber));
+        }
+
+        secondPart = secondPart.substring(matcher.end()).trim();
+
+        // Update line without closing bracket and / 2 statement
+        line = firstPart + " " + secondPart;
+      }
+
       LOGGER.trace("Parsing line {}: {}", currentLineNumber, line);
       final var terms = parseTerms(variableBuilders, line, currentLineNumber);
       builders.getLast().addTerms(terms);
       line = getNextProperLine(bufferedReader);
     }
+
+    if (isProcessingQuadraticTerms) {
+      throw new InputException(
+          String.format("Line %d: missing closing bracket.", currentLineNumber));
+    }
+
     currentSection = getSection(line, List.of(Section.CONSTRAINTS, Section.END));
     LOGGER.debug("Switching to section {}.", currentSection);
     return builders.toImmutable();
