@@ -123,6 +123,17 @@ public class LpFileReader {
     return lpFileReader;
   }
 
+  /**
+   * Reads the input directly from a string.
+   * @param input input string
+   * @return lp file reader
+   */
+  public static LpFileReader fromInput(final String input) {
+    LpFileReader lpFileReader = new LpFileReader();
+    lpFileReader.read(new BufferedReader(new StringReader(input)));
+    return lpFileReader;
+  }
+
   private void read(BufferedReader bf) {
     currentSection = Section.START;
     currentLineNumber = 0;
