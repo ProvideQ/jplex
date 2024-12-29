@@ -4,7 +4,7 @@ This repository contains a basic file reader for the LP format written in modern
 
 References:
 
-- [Gurobi description](https://www.gurobi.com/documentation/9.1/refman/lp_format.html)
+- [Gurobi description](https://docs.gurobi.com/projects/optimizer/en/current/reference/fileformats/modelformats.html#lp-format)
 - [Cplex description](http://lpsolve.sourceforge.net/5.0/CPLEX-format.htm)
 
 ## Compilation
