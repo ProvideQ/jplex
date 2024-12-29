@@ -14,7 +14,7 @@ class LpFileReaderTest {
   void threeObjectivesTwoConstraints_onlyContinuousVariables() {
     final var path = "src/test/resources/3obj_2cons.lp";
 
-    final LpFileReader input = new LpFileReader(path);
+    final LpFileReader input = LpFileReader.fromFilePath(path);
 
     assertEquals(3, input.getNumberOfObjectives());
     assertEquals(3, input.getNumberOfVariables());
@@ -28,7 +28,7 @@ class LpFileReaderTest {
   void noEndSection_empty() {
     final var path = "src/test/resources/no_end_section.lp";
 
-    final LpFileReader input = new LpFileReader(path);
+    final LpFileReader input = LpFileReader.fromFilePath(path);
 
     assertEquals(0, input.getNumberOfObjectives());
     assertEquals(0, input.getNumberOfVariables());
@@ -39,7 +39,7 @@ class LpFileReaderTest {
   void twoObjectivesTwoConstraints_onlyBinaryVariables() {
     final var path = "src/test/resources/2obj_2cons_only_binary_vars.lp";
 
-    final LpFileReader input = new LpFileReader(path);
+    final LpFileReader input = LpFileReader.fromFilePath(path);
 
     assertEquals(2, input.getNumberOfObjectives());
     assertEquals(3, input.getNumberOfVariables());
@@ -53,7 +53,7 @@ class LpFileReaderTest {
   void twoObjectivesTwoConstraints_allVariableTypes() {
     final var path = "src/test/resources/2obj_2cons_all_variable_types.lp";
 
-    final LpFileReader input = new LpFileReader(path);
+    final LpFileReader input = LpFileReader.fromFilePath(path);
 
     assertEquals(2, input.getNumberOfObjectives());
     assertEquals(3, input.getNumberOfVariables());
@@ -67,7 +67,7 @@ class LpFileReaderTest {
   void oneObjectiveTwoConstraints_allVariablesWithBounds() {
     final var path = "src/test/resources/1obj_1cons_all_variables_with_bounds.lp";
 
-    final LpFileReader input = new LpFileReader(path);
+    final LpFileReader input = LpFileReader.fromFilePath(path);
     final var z = input.getBinaryVariables().get(0);
     final var x = input.getContinuousVariables().get(0);
     final var y = input.getIntegerVariables().get(0);
@@ -101,7 +101,7 @@ class LpFileReaderTest {
   void quadratic() {
     final var path = "src/test/resources/quadratic.lp";
 
-    final LpFileReader input = new LpFileReader(path);
+    final LpFileReader input = LpFileReader.fromFilePath(path);
 
     assertEquals(1, input.getNumberOfObjectives());
     assertEquals(27, input.getObjective(0).terms().size());
@@ -113,7 +113,7 @@ class LpFileReaderTest {
   void qubo() {
     final var path = "src/test/resources/qubo.lp";
 
-    final LpFileReader input = new LpFileReader(path);
+    final LpFileReader input = LpFileReader.fromFilePath(path);
 
     assertEquals(1, input.getNumberOfObjectives());
     assertEquals(10, input.getObjective(0).terms().size());

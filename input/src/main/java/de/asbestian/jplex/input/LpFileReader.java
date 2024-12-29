@@ -11,6 +11,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.Arrays;
 import java.util.List;
 import java.util.StringTokenizer;
@@ -88,19 +89,38 @@ public class LpFileReader {
   private Section currentSection;
   private int currentLineNumber;
 
-  public LpFileReader(final BufferedReader bf) {
-    read(bf);
+  private LpFileReader() {
+    // empty constructor
   }
 
-  public LpFileReader(final String path) {
+  /**
+   * Reads the input from a buffered reader.
+   * @param bf buffered reader
+   * @return lp file reader
+   */
+  public static LpFileReader fromReader(final BufferedReader bf) {
+    LpFileReader lpFileReader = new LpFileReader();
+    lpFileReader.read(bf);
+    return lpFileReader;
+  }
+
+  /**
+   * Reads the input from a file path.
+   * @param path file path
+   * @return lp file reader
+   */
+  public static LpFileReader fromFilePath(final String path) {
+    LpFileReader lpFileReader = new LpFileReader();
     try {
-      read(new BufferedReader(new FileReader(path)));
+      lpFileReader.read(new BufferedReader(new FileReader(path)));
     } catch (FileNotFoundException e) {
       LOGGER.error("File {} not found.", path);
-      objectives = Lists.immutable.empty();
-      constraints = Lists.immutable.empty();
-      variables = Maps.immutable.empty();
+      lpFileReader.objectives = Lists.immutable.empty();
+      lpFileReader.constraints = Lists.immutable.empty();
+      lpFileReader.variables = Maps.immutable.empty();
     }
+
+    return lpFileReader;
   }
 
   private void read(BufferedReader bf) {
